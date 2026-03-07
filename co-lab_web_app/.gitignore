@@ -1,0 +1,5 @@
+# Claude Code settings
+node_modules/
+dist/
+.env
+*.ts

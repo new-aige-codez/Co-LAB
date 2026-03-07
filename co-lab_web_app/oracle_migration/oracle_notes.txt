@@ -1,0 +1,38 @@
+Files Created
+File	Purpose
+ecosystem.config.js	PM2 process manager configuration
+deploy-oracle.sh	Automated deployment script
+nginx.conf.example	Reverse proxy configuration
+.env.example	Updated with Oracle Cloud settings
+Your Next Steps
+1. Create Oracle Cloud Account
+Go to https://www.oracle.com/cloud/free/ and sign up
+
+2. Create VM Instance
+4 ARM CPUs, 24GB RAM, 200GB storage
+Download/create SSH key
+Note your Public IP
+3. Configure Security List
+Open ports: 22, 80, 443, 3000, 3001, 18789
+
+4. Upload Code & Deploy
+
+# On your local machine
+scp -i ~/.ssh/your_key -r "Claude-Claw" ubuntu@<YOUR_IP>:~
+
+# SSH into server
+ssh -i ~/.ssh/your_key ubuntu@<YOUR_IP>
+
+# Run setup
+cd Claude-Claw
+chmod +x deploy-oracle.sh
+./deploy-oracle.sh setup
+5. Configure Environment
+
+nano .env
+# Add your TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, etc.
+pm2 restart claudeclaw
+6. Access Your App
+Web UI: http://<YOUR_IP>:3000
+API: http://<YOUR_IP>:3001/api/health
+The deployment script handles Node.js installation, PM2 setup, and starting the application automatically.

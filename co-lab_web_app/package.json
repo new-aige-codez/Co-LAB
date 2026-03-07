@@ -1,0 +1,47 @@
+{
+  "name": "claude-claw-cloud",
+  "version": "1.0.0",
+  "description": "Collaborative cloud-based Claude Code workspace",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:server": "tsx watch src/index.ts",
+    "dev:web": "cd web && npm run dev",
+    "build": "npm run build:server && npm run build:web",
+    "build:server": "node --max-old-space-size=8192 node_modules/typescript/bin/tsc -p tsconfig.server.json",
+    "build:web": "cd web && npm run build",
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@hono/node-server": "^1.13.7",
+    "@hono/zod-validator": "^0.7.6",
+    "bcrypt": "^5.0.1",
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.39.3",
+    "hono": "^4.7.2",
+    "ioredis": "^5.5.0",
+    "jose": "^5.10.0",
+    "nanoid": "^5.1.2",
+    "ws": "^8.18.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.5",
+    "@types/ws": "^8.5.14",
+    "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.30.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

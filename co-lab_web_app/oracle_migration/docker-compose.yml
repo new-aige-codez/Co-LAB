@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mission-control:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-me-in-production}
+      - DATABASE_PATH=/app/data/mission-control.db
+    volumes:
+      - mission-control-data:/app/data
+      - mission-control-uploads:/app/workspace/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for session caching (future use)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+
+volumes:
+  mission-control-data:
+  mission-control-uploads:
