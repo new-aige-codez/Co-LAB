@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Standalone output for Docker/serverless deployment
-  output: "standalone",
+  // Note: standalone output disabled due to better-sqlite3 native module compatibility
+  // For production deployment, use `next start` directly
+  // output: "standalone",
 
   allowedDevOrigins: [
     "http://localhost:3000",

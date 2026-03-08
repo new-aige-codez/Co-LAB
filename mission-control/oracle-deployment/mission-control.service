@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/mission-control
-ExecStart=/usr/bin/node .next/standalone/server.js
+ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production

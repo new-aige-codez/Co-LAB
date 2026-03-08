@@ -27,7 +27,7 @@ NC='\033[0m' # No Color
 # Configuration
 APP_DIR="/home/ubuntu/mission-control"
 SERVICE_NAME="mission-control"
-REPO_URL="https://github.com/YOUR_REPO/Co-LAB.git"
+REPO_URL="https://github.com/new-aige-codez/Co-LAB.git"
 BRANCH="merger-plan"
 
 log_info() {
@@ -65,14 +65,9 @@ build_app() {
     log_info "Installing dependencies..."
     pnpm install
 
-    # Build Next.js with standalone output
+    # Build Next.js (no standalone - uses pnpm start for production)
     log_info "Building Next.js..."
     pnpm build
-
-    # Copy static files to standalone directory
-    log_info "Copying static files..."
-    cp -r .next/static .next/standalone/.next/static
-    cp -r public .next/standalone/public
 
     log_success "Build complete"
 }
