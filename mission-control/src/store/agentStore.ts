@@ -38,6 +38,23 @@ export interface DevelopmentAgent extends BaseAgent {
 
 export type Agent = BusinessAgent | DevelopmentAgent;
 
+// Feature statuses for KanPlan buckets
+export type FeatureStatus =
+  | 'inbox'
+  | 'awaiting_deep_research'
+  | 'research'
+  | 'deep_research_received'
+  | 'developing'
+  | 'failed'
+  | 'testing'
+  | 'in_review'
+  | 'completed'
+  | 'approved'
+  | 'ready_for_review'
+  | 'done'
+  | 'paused'
+  | 'deferred';
+
 export interface LLMProvider {
   id: string;
   name: string;
@@ -316,6 +333,50 @@ export function useDevelopmentAgents(): DevelopmentAgent[] {
 
 export function useLLMProviders(): LLMProvider[] {
   return useAgentStore((state) => state.llmProviders);
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+export function mapKanplanStatusToFeatureStatus(kanplanStatus: string): FeatureStatus | undefined {
+  // Map simplified KanPlan statuses to detailed feature statuses
+  const statusMap: Record<string, FeatureStatus> = {
+    'inbox': 'inbox',
+    'up_next': 'inbox',
+    'active': 'developing',  // Default active status
+    'complete': 'done',
+  };
+  return statusMap[kanplanStatus] || 'inbox';
+}
+
+export function getBucketsForStatus(status: FeatureStatus): string {
+  // Group statuses into KanPlan buckets
+  if (['paused', 'deferred'].includes(status)) {
+    return 'back_burner';
+  }
+  if (['inbox', 'awaiting_deep_research'].includes(status)) {
+    return 'in_queue';
+  }
+  if (['research', 'awaiting_deep_research', 'deep_research_received'].includes(status)) {
+    return 'research';
+  }
+  if (status === 'developing') {
+    return 'development';
+  }
+  if (status === 'failed') {
+    return 'diagnostics';
+  }
+  if (['testing', 'in_review', 'completed'].includes(status)) {
+    return 'testing';
+  }
+  if (['approved', 'ready_for_review'].includes(status)) {
+    return 'review';
+  }
+  if (status === 'done') {
+    return 'complete';
+  }
+  return 'in_queue';
 }
 
 export function useAgentByRole(role: string): Agent | undefined {

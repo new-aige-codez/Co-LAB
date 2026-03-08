@@ -28,6 +28,7 @@ import {
   Cpu,
   ChevronDown,
   Check,
+  Briefcase,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -166,7 +167,7 @@ function AgentCard({ agent, onToggleStatus, llmProviders, onSetModel }: AgentCar
 
           {/* Toggle */}
           <button
-            onClick={() => onToggleStatus(agent.id)}
+            onClick={() => onToggleStatus(agent.id, agent.status === 'disabled' ? 'idle' : 'disabled')}
             className={cn(
               'p-2 rounded-lg transition-colors',
               agent.status === 'disabled'

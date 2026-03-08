@@ -392,3 +392,38 @@ The daemon is an autonomous background process that polls tasks.json, spawns Cla
 | `/researcher` | Activate researcher agent persona |
 | `/marketer` | Activate marketer agent persona |
 | `/business-analyst` | Activate business analyst persona |
+
+## Oracle Cloud Deployment (co-lab_web_app)
+
+The `co-lab_web_app/` project is deployed to **Oracle Cloud VM at 129.159.38.45**.
+
+### Sync Workflow: Local ↔ Cloud
+```
+1. Make changes locally in co-lab_web_app/
+2. git push
+3. SSH: ssh -i "co-lab_web_app/oracle_migration/keys/ssh-key-2026-03-05.key" ubuntu@129.159.38.45
+4. Deploy: cd ~/co-lab && ./deploy-oracle.sh deploy
+   (auto: git pull → npm install → SWC build → Vite build → systemctl restart)
+```
+
+### Build Pipeline (optimized for 6GB RAM VM)
+- **Server**: SWC compiles TypeScript (~150ms, ~200MB RAM) — NOT tsc (which OOMs at 4-8GB)
+- **Web**: `vite build` only (no `tsc -b` — Vite handles TS natively)
+- **Post-build**: `fix-esm-imports.mjs` adds `.js` extensions (required for Node.js ESM)
+- **Process manager**: systemd (not PM2) — zero overhead
+
+### Environment Differences
+| | Local | Cloud |
+|---|---|---|
+| Run | `npm run dev` (tsx + vite dev) | `sudo systemctl restart co-lab` |
+| .env | Dev secrets | Production secrets (auto-generated) |
+| Build | Not needed (tsx runs TS) | SWC + Vite (dist/) |
+| Logs | Terminal | `journalctl -u co-lab -f` |
+
+### Key Files
+- `co-lab_web_app/.swcrc` — SWC compiler config
+- `co-lab_web_app/fix-esm-imports.mjs` — ESM import fixer (post-build)
+- `co-lab_web_app/oracle_migration/co-lab.service` — systemd service
+- `co-lab_web_app/oracle_migration/deploy-oracle.sh` — deploy script
+- `co-lab_web_app/oracle_migration/keys/` — SSH keys (DO NOT commit to git)
+

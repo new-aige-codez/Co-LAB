@@ -5,13 +5,14 @@
 # Usage: ./deploy-oracle.sh [command]
 #
 # Commands:
-#   setup     - First-time setup (install Node.js, PM2, dependencies)
+#   setup     - First-time setup (install Node.js, dependencies, build, start)
 #   deploy    - Deploy latest code (git pull, build, restart)
-#   start     - Start services with PM2
+#   start     - Start services
 #   stop      - Stop services
 #   restart   - Restart services
 #   logs      - Show logs
 #   status    - Show status
+#   build     - Build the application
 #
 
 set -e
@@ -24,8 +25,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-APP_NAME="co-lab"
 APP_DIR="/home/ubuntu/co-lab"
+SERVICE_NAME="co-lab"
 NODE_VERSION="20"
 
 log_info() {
@@ -70,19 +71,6 @@ install_nodejs() {
     log_success "Node.js $(node -v) installed"
 }
 
-# Install PM2
-install_pm2() {
-    log_info "Installing PM2..."
-
-    if command -v pm2 &> /dev/null; then
-        log_success "PM2 already installed"
-        return
-    fi
-
-    sudo npm install -g pm2
-    log_success "PM2 installed"
-}
-
 # Install system dependencies
 install_dependencies() {
     log_info "Installing system dependencies..."
@@ -106,26 +94,33 @@ setup_app() {
 
     cd "$APP_DIR"
 
-    # Install npm dependencies
+    # Install npm dependencies (includes SWC)
     log_info "Installing root dependencies..."
     npm install
 
     log_info "Installing web dependencies..."
     cd web && npm install && cd ..
 
-    # Create logs directory
+    # Create directories
     mkdir -p logs
-
-    # Create store directory
-    mkdir -p store/memory/enterprise
+    mkdir -p data
 
     # Check for .env file
     if [ ! -f .env ]; then
         log_warn "No .env file found!"
         log_info "Creating .env from example..."
         cp .env.example .env
-        log_warn "Please edit .env with your credentials:"
-        log_warn "  nano $APP_DIR/.env"
+
+        # Generate real secrets
+        JWT_SECRET=$(openssl rand -hex 32)
+        ENCRYPTION_KEY=$(openssl rand -hex 32)
+        sed -i "s/dev-jwt-secret-change-in-production-32bytes/$JWT_SECRET/" .env
+        sed -i "s/your-jwt-secret-here-change-in-production/$JWT_SECRET/" .env
+        sed -i "s/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/$ENCRYPTION_KEY/" .env
+        sed -i "s/your-encryption-key-here-change-in-production/$ENCRYPTION_KEY/" .env
+        sed -i "s/NODE_ENV=development/NODE_ENV=production/" .env
+
+        log_success "Generated production secrets in .env"
     fi
 
     log_success "Application setup complete"
@@ -137,55 +132,142 @@ build_app() {
 
     cd "$APP_DIR"
 
-    # Build TypeScript
-    npm run build
+    # Build server with SWC (fast, low-memory)
+    log_info "Building server with SWC..."
+    npx swc src -d dist --strip-leading-paths
 
-    # Build web app (optional - can run dev mode)
+    # Build web app with Vite
+    log_info "Building web app with Vite..."
     cd web && npm run build && cd ..
 
     log_success "Build complete"
 }
 
+# Install systemd service
+install_service() {
+    log_info "Installing systemd service..."
+
+    # Copy service file
+    sudo cp "$APP_DIR/oracle_migration/co-lab.service" /etc/systemd/system/co-lab.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable co-lab
+
+    log_success "systemd service installed and enabled"
+}
+
+# Configure Nginx
+setup_nginx() {
+    log_info "Configuring Nginx..."
+
+    # Create nginx config for Co-LAB
+    sudo tee /etc/nginx/sites-available/co-lab > /dev/null <<'NGINX'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Serve built React app directly (no upstream needed)
+    root /home/ubuntu/co-lab/web/dist;
+    index index.html;
+
+    # API reverse proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # WebSocket proxy (critical for real-time)
+    location /ws {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    # SPA fallback — serves index.html for client-side routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINX
+
+    # Enable site
+    sudo ln -sf /etc/nginx/sites-available/co-lab /etc/nginx/sites-enabled/
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t
+    sudo systemctl restart nginx
+
+    log_success "Nginx configured"
+}
+
+# Open firewall ports
+setup_firewall() {
+    log_info "Opening firewall ports..."
+
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+    sudo netfilter-persistent save 2>/dev/null || true
+
+    log_success "Firewall ports opened (80, 443)"
+}
+
 # Start services
 start_services() {
-    log_info "Starting services..."
+    log_info "Starting Co-LAB..."
 
-    cd "$APP_DIR"
+    sudo systemctl start co-lab
 
-    # Start with PM2
-    pm2 start ecosystem.config.js
+    # Wait for startup
+    sleep 3
 
-    # Save PM2 configuration
-    pm2 save
-
-    # Setup startup script
-    pm2 startup | tail -n 1 | bash || true
-
-    log_success "Services started"
+    if sudo systemctl is-active --quiet co-lab; then
+        log_success "Co-LAB is running"
+    else
+        log_error "Co-LAB failed to start. Check logs: journalctl -u co-lab -n 50"
+        sudo journalctl -u co-lab -n 20 --no-pager
+    fi
 }
 
 # Stop services
 stop_services() {
-    log_info "Stopping services..."
-    pm2 stop $APP_NAME || true
-    log_success "Services stopped"
+    log_info "Stopping Co-LAB..."
+    sudo systemctl stop co-lab || true
+    log_success "Co-LAB stopped"
 }
 
 # Restart services
 restart_services() {
-    log_info "Restarting services..."
-    pm2 restart $APP_NAME || start_services
-    log_success "Services restarted"
+    log_info "Restarting Co-LAB..."
+    sudo systemctl restart co-lab
+    sleep 3
+    if sudo systemctl is-active --quiet co-lab; then
+        log_success "Co-LAB restarted"
+    else
+        log_error "Restart failed. Check: journalctl -u co-lab -n 50"
+    fi
 }
 
 # Show logs
 show_logs() {
-    pm2 logs $APP_NAME --lines 100
+    sudo journalctl -u co-lab -f -n 100
 }
 
 # Show status
 show_status() {
-    pm2 status
+    sudo systemctl status co-lab --no-pager || true
 
     echo ""
     log_info "Health checks:"
@@ -197,12 +279,16 @@ show_status() {
         log_error "API: http://localhost:3001 - FAILED"
     fi
 
-    # Check Web UI
-    if curl -s http://localhost:3000 > /dev/null 2>&1; then
-        log_success "Web UI: http://localhost:3000 - OK"
+    # Check Nginx
+    if curl -s http://localhost > /dev/null 2>&1; then
+        log_success "Nginx: http://localhost - OK"
     else
-        log_warn "Web UI: http://localhost:3000 - Not running or in dev mode"
+        log_error "Nginx: http://localhost - FAILED"
     fi
+
+    echo ""
+    log_info "Memory usage:"
+    free -h
 }
 
 # Deploy latest code
@@ -236,9 +322,11 @@ full_setup() {
     check_os
     install_dependencies
     install_nodejs
-    install_pm2
     setup_app
     build_app
+    install_service
+    setup_nginx
+    setup_firewall
     start_services
 
     echo ""
@@ -246,12 +334,14 @@ full_setup() {
     log_success "Co-LAB is now running!"
     log_success "==================================="
     echo ""
-    log_info "Next steps:"
-    echo "  1. Edit .env: nano $APP_DIR/.env"
-    echo "  2. Restart: pm2 restart $APP_NAME"
-    echo "  3. View logs: pm2 logs $APP_NAME"
+    log_info "Service management:"
+    echo "  Status:   sudo systemctl status co-lab"
+    echo "  Logs:     journalctl -u co-lab -f"
+    echo "  Restart:  sudo systemctl restart co-lab"
     echo ""
     log_info "Access the Web UI at: http://<YOUR_PUBLIC_IP>"
+    echo ""
+    show_status
 }
 
 # Main command handler

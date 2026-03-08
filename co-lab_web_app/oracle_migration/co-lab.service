@@ -1,0 +1,18 @@
+[Unit]
+Description=Co-LAB Web App
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/co-lab
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/home/ubuntu/co-lab/.env
+StandardOutput=append:/home/ubuntu/co-lab/logs/out.log
+StandardError=append:/home/ubuntu/co-lab/logs/error.log
+
+[Install]
+WantedBy=multi-user.target
