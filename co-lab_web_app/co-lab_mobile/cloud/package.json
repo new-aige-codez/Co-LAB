@@ -1,0 +1,18 @@
+{
+    "name": "colab-cloud-bridge",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Co-LAB Cloud Bridge Server — handles tasks that can't run on mobile (browser automation, heavy builds, web scraping)",
+    "scripts": {
+        "start": "node bridge-server.js",
+        "dev": "node --watch bridge-server.js",
+        "install-browser": "npx playwright install chromium --with-deps"
+    },
+    "dependencies": {
+        "playwright": "^1.42.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

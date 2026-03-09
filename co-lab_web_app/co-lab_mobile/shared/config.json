@@ -1,0 +1,139 @@
+{
+    "$schema": "./config-schema.json",
+    "version": "1.0.0",
+    "description": "Co-LAB Mobile — Task routing and device configuration",
+    "device": {
+        "name": "android-mobile",
+        "maxMemoryMB": 512,
+        "maxClaudeInstances": 2,
+        "nodeMemoryLimitMB": 256,
+        "bridgeLocalPort": 18789
+    },
+    "cloud": {
+        "bridgePort": 18790,
+        "playwrightTimeout": 30000,
+        "buildTimeout": 300000,
+        "maxBodySizeMB": 50
+    },
+    "taskRouting": {
+        "description": "Rules for routing tasks between local (phone) and cloud (Oracle VM)",
+        "local": {
+            "description": "Tasks that run on the phone — fast, uses local filesystem",
+            "tasks": [
+                {
+                    "pattern": "file/*",
+                    "reason": "Direct filesystem access, no network needed"
+                },
+                {
+                    "pattern": "git/status",
+                    "reason": "Lightweight git operation"
+                },
+                {
+                    "pattern": "git/diff",
+                    "reason": "Lightweight git operation"
+                },
+                {
+                    "pattern": "git/commit",
+                    "reason": "Lightweight git operation"
+                },
+                {
+                    "pattern": "git/log",
+                    "reason": "Lightweight git operation"
+                },
+                {
+                    "pattern": "lint/run",
+                    "reason": "Low memory, fast execution"
+                },
+                {
+                    "pattern": "test/unit",
+                    "reason": "Typically lightweight"
+                },
+                {
+                    "pattern": "db/query",
+                    "reason": "SQLite runs locally"
+                },
+                {
+                    "pattern": "format/code",
+                    "reason": "Prettier/eslint run fine locally"
+                }
+            ]
+        },
+        "cloud": {
+            "description": "Tasks offloaded to Oracle Cloud — requires more resources or browser",
+            "tasks": [
+                {
+                    "pattern": "browser/*",
+                    "reason": "Playwright/Chromium won't run in proot sandbox"
+                },
+                {
+                    "pattern": "build/npm",
+                    "reason": "npm builds consume too much RAM for mobile"
+                },
+                {
+                    "pattern": "build/docker",
+                    "reason": "Docker not available in proot"
+                },
+                {
+                    "pattern": "search/web",
+                    "reason": "Requires JS-rendering browser for reliable results"
+                },
+                {
+                    "pattern": "image/generate",
+                    "reason": "AI image APIs need stable network + processing"
+                },
+                {
+                    "pattern": "test/e2e",
+                    "reason": "E2E tests require headless browser"
+                },
+                {
+                    "pattern": "pdf/generate",
+                    "reason": "PDF rendering needs Chromium"
+                }
+            ]
+        }
+    },
+    "tmux": {
+        "sessionName": "colab",
+        "windows": [
+            {
+                "name": "infra",
+                "panes": [
+                    "backend-api",
+                    "bridge-client",
+                    "system-monitor"
+                ]
+            },
+            {
+                "name": "claude",
+                "panes": [
+                    "instance-1",
+                    "instance-2"
+                ]
+            },
+            {
+                "name": "work",
+                "panes": [
+                    "workspace"
+                ]
+            },
+            {
+                "name": "logs",
+                "panes": [
+                    "log-viewer"
+                ]
+            }
+        ]
+    },
+    "notifications": {
+        "enabled": true,
+        "onTaskComplete": true,
+        "onError": true,
+        "onCloudBridgeDisconnect": true,
+        "vibrate": [
+            200,
+            100,
+            200
+        ],
+        "ledColor": "#FF6600"
+    }
+}
